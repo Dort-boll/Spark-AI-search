@@ -1,0 +1,7 @@
+{
+  "name": "spark",
+  "description": "A lightweight, futuristic AGI search interface focused on real-time accuracy and optimized resource usage.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
