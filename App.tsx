@@ -6,6 +6,9 @@ import ErrorNotification from './components/ErrorNotification';
 import { puterService, AttachedFile } from './puterService';
 import { ChatMessage, UsageStats } from './types';
 
+// TYPES
+type ViewMode = 'synthesis' | 'media' | 'references';
+
 // CUSTOM THEMED CURSOR
 const CustomCursor: React.FC = () => {
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -197,7 +200,7 @@ const FormattedContent: React.FC<{ content: string }> = React.memo(({ content })
         return;
       }
 
-      const style = { animationDelay: `${Math.min(i * 0.02, 0.8)}s` };
+      const style = { animationDelay: `${Math.min(i * 0.015, 0.4)}s` };
 
       if (trimmedLine.startsWith('# ')) {
         elements.push(<h1 key={i} className="animate-result" style={style} dangerouslySetInnerHTML={{ __html: parseMarkdown(trimmedLine.replace('# ', '')) }} />);
@@ -249,8 +252,6 @@ const UsageBadge: React.FC<{ usage?: UsageStats }> = ({ usage }) => {
   );
 };
 
-type ViewMode = 'synthesis' | 'media' | 'references';
-
 const App: React.FC = () => {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -298,11 +299,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const mainEl = scrollRef.current;
     if (!mainEl) return;
-
-    const handleScroll = () => {
-      setShowScrollTop(mainEl.scrollTop > 300);
-    };
-
+    const handleScroll = () => setShowScrollTop(mainEl.scrollTop > 300);
     mainEl.addEventListener('scroll', handleScroll);
     return () => mainEl.removeEventListener('scroll', handleScroll);
   }, []);
@@ -415,8 +412,8 @@ const App: React.FC = () => {
           setIsLoading(false);
         }
       }
-    } catch (err: any) {
-      console.error("Critical Failure:", err);
+    } catch (error: any) {
+      console.error("Critical Failure:", error);
       setError("Vayu core disconnect detected.");
       setIsLoading(false);
     } finally {
@@ -444,243 +441,247 @@ const App: React.FC = () => {
   }, [query, suggestions]);
 
   return (
-    <div className="relative h-screen w-full flex flex-col bg-[#010103] overflow-hidden font-sans selection:bg-cyan-500/20">
+    <div className="relative h-screen w-full flex bg-[#010103] overflow-hidden font-sans selection:bg-cyan-500/20">
       <CustomCursor />
       <Background />
       <FloatingElements />
       {error && <ErrorNotification message={error} onClose={() => setError(null)} />}
 
-      <header className={`layout-transition fixed top-0 w-full z-[60] flex items-center px-6 sm:px-16 ${
-        hasHistory ? 'h-20 header-glass' : 'h-[32vh] sm:h-[38vh] items-end justify-center pb-8'
-      } ${isLoading ? 'header-loading-glow' : ''}`}>
-        <SparkleTitle hasHistory={hasHistory} isLoading={isLoading} onReset={handleReset} />
-        {hasHistory && <div className="header-accent-line" />}
-      </header>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col relative">
+        <header className={`layout-transition fixed top-0 left-0 right-0 z-[60] flex items-center px-6 sm:px-16 ${
+          hasHistory ? 'h-20 header-glass' : 'h-[32vh] sm:h-[38vh] items-end justify-center pb-8'
+        } ${isLoading ? 'header-loading-glow' : ''}`}>
+          <SparkleTitle hasHistory={hasHistory} isLoading={isLoading} onReset={handleReset} />
+          {hasHistory && <div className="header-accent-line" />}
+        </header>
 
-      <main 
-        ref={scrollRef}
-        className={`flex-1 w-full max-w-[920px] mx-auto px-4 sm:px-12 overflow-y-auto pt-28 sm:pt-36 pb-64 transition-all duration-1000 custom-scroll ${hasHistory ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}
-      >
-        <div className="flex flex-col gap-12 sm:gap-18">
-          {messages.map((msg, idx) => (
-            <div key={idx} className="group/msg animate-result flex flex-col w-full relative">
-              {msg.role === 'user' ? (
-                <div className="flex flex-col gap-1 py-8 px-4">
-                   <div className="flex items-center gap-5 sm:gap-7">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center text-[10px] font-black text-white/40 shrink-0 shadow-lg rotate-2 uppercase tracking-tighter">Query</div>
-                    <h2 className="text-xl sm:text-2xl md:text-3xl font-light text-white/95 tracking-tight leading-snug">{msg.content}</h2>
-                  </div>
-                  {idx === messages.length - 1 && isLoading && !messages.find((m, i) => i > idx) && (
-                    <div className="pl-13 sm:pl-17">
-                      <ThinkingIndicator engine={currentEngine} step={currentStep} />
+        <main 
+          ref={scrollRef}
+          className={`flex-1 w-full max-w-[920px] mx-auto px-4 sm:px-12 overflow-y-auto pt-28 sm:pt-36 pb-64 transition-all duration-1000 custom-scroll ${hasHistory ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}
+        >
+          <div className="flex flex-col gap-12 sm:gap-18">
+            {messages.map((msg, idx) => (
+              <div key={idx} className="group/msg animate-result flex flex-col w-full relative">
+                {msg.role === 'user' ? (
+                  <div className="flex flex-col gap-1 py-8 px-4">
+                    <div className="flex items-center gap-5 sm:gap-7">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center text-[10px] font-black text-white/40 shrink-0 shadow-lg rotate-2 uppercase tracking-tighter">Query</div>
+                      <h2 className="text-xl sm:text-2xl md:text-3xl font-light text-white/95 tracking-tight leading-snug">{msg.content}</h2>
                     </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex flex-col border border-white/[0.08] bg-white/[0.02] backdrop-blur-[60px] rounded-[2rem] sm:rounded-[2.8rem] overflow-hidden shadow-2xl transition-all ring-1 ring-white/5 relative">
-                  <div className="flex flex-wrap items-center px-5 sm:px-8 py-4 border-b border-white/[0.03] bg-white/[0.02] gap-2">
-                    <div className="flex bg-white/[0.05] p-1 rounded-full gap-0.5 border border-white/5">
-                      {['synthesis', 'media', 'references'].map((tab) => (
-                        <button
-                          key={tab}
-                          onClick={() => setActiveTabs(prev => ({ ...prev, [idx]: tab as ViewMode }))}
-                          className={`px-4 sm:px-7 py-1.5 rounded-full text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.2em] transition-all duration-300 ${
-                            (activeTabs[idx] || 'synthesis') === tab 
-                            ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/15' 
-                            : 'text-white/30 hover:text-white/70'
-                          }`}
-                        >
-                          {tab === 'references' ? 'Sources' : tab}
-                        </button>
-                      ))}
-                    </div>
-                    <UsageBadge usage={msg.usage} />
-                  </div>
-
-                  <div className="p-7 sm:p-12 min-h-[200px]">
-                    {(activeTabs[idx] || 'synthesis') === 'synthesis' && (
-                      <div className="animate-fade-scale">
-                        <FormattedContent content={msg.content} />
-                        {idx === messages.length - 1 && isLoading && msg.content && (
-                          <div className="flex items-center gap-4 mt-6 opacity-40">
-                             <div className="thinking-spark-container scale-[0.6]">
-                               <div className="thinking-spark-ring border-cyan-400"></div>
-                               <div className="thinking-spark-core bg-cyan-400"></div>
-                             </div>
-                             <span className="text-[9px] font-bold uppercase tracking-[0.4em] text-white/50">
-                               Neural Stream Active...
-                             </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {(activeTabs[idx] || 'synthesis') === 'media' && (
-                      <div className="animate-fade-scale grid grid-cols-1 sm:grid-cols-2 gap-8">
-                        {msg.images?.map((img, i) => (
-                          <div key={i} className="relative rounded-2xl sm:rounded-3xl overflow-hidden border border-white/10 aspect-video bg-black/90 shadow-xl group/img">
-                            <img src={img} alt="Visual Artifact" className="w-full h-full object-cover opacity-80 group-hover/img:opacity-100 group-hover/img:scale-105 transition-all duration-700" />
-                          </div>
-                        )) || <div className="h-40 border border-dashed border-white/10 rounded-2xl flex items-center justify-center opacity-30 text-[9px] uppercase tracking-[0.5em] font-black">No artifacts found</div>}
-                      </div>
-                    )}
-
-                    {(activeTabs[idx] || 'synthesis') === 'references' && (
-                      <div className="animate-fade-scale grid grid-cols-1 sm:grid-cols-2 gap-5">
-                        <div className="col-span-2 text-center opacity-20 py-16 uppercase tracking-[0.5em] text-[10px] font-black">Vayu sources integrated in markdown</div>
+                    {idx === messages.length - 1 && isLoading && !messages.find((m, i) => i > idx) && (
+                      <div className="pl-13 sm:pl-17">
+                        <ThinkingIndicator engine={currentEngine} step={currentStep} />
                       </div>
                     )}
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
-
-          {!isLoading && messages.length > 0 && (
-            <section className="animate-result flex flex-col gap-8 pt-6 pb-24">
-              <div className="flex items-center gap-4 px-2">
-                <div className="h-px flex-grow bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent" />
-                <div className="flex items-center gap-3">
-                  <div className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
-                  </div>
-                  <h3 className="text-[11px] font-black text-cyan-400/60 uppercase tracking-[0.5em] whitespace-nowrap">Neural Bridge</h3>
-                </div>
-                <div className="h-px flex-grow bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent" />
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                {(messages[messages.length-1].relatedQueries || ["Explore Vayu AGI", "AI search tools", "Neural logic systems"]).map((text, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handleSearch(undefined, text)}
-                    className="p-6 sm:p-9 rounded-[2rem] sm:rounded-[2.5rem] border border-white/10 bg-white/[0.015] backdrop-blur-md hover:bg-cyan-500/[0.03] hover:border-cyan-500/40 transition-all text-left group shadow-lg ring-1 ring-white/5 relative overflow-hidden"
-                  >
-                    <div className="w-10 h-10 rounded-2xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 mb-5 group-hover:scale-110 group-hover:bg-cyan-500/20 transition-all group-hover:rotate-12">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3z"/></svg>
+                ) : (
+                  <div className="flex flex-col border border-white/[0.08] bg-white/[0.02] backdrop-blur-[60px] rounded-[2rem] sm:rounded-[2.8rem] overflow-hidden shadow-2xl transition-all ring-1 ring-white/5 relative">
+                    <div className="flex flex-wrap items-center px-5 sm:px-8 py-4 border-b border-white/[0.03] bg-white/[0.02] gap-2">
+                      <div className="flex bg-white/[0.05] p-1 rounded-full gap-0.5 border border-white/5">
+                        {['synthesis', 'media', 'references'].map((tab) => (
+                          <button
+                            key={tab}
+                            onClick={() => setActiveTabs(prev => ({ ...prev, [idx]: tab as ViewMode }))}
+                            className={`px-4 sm:px-7 py-1.5 rounded-full text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.2em] transition-all duration-300 ${
+                              (activeTabs[idx] || 'synthesis') === tab 
+                              ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/15' 
+                              : 'text-white/30 hover:text-white/70'
+                            }`}
+                          >
+                            {tab === 'references' ? 'Sources' : tab}
+                          </button>
+                        ))}
+                      </div>
+                      <UsageBadge usage={msg.usage} />
                     </div>
-                    <span className="text-[13px] sm:text-[14px] text-white/50 group-hover:text-white transition-colors line-clamp-2 leading-relaxed font-medium tracking-tight">{text}</span>
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
-        </div>
-      </main>
 
-      <div className={`fixed left-0 right-0 px-4 flex flex-col items-center z-[70] transition-all duration-1000 ${hasHistory ? 'bottom-6 sm:bottom-10' : 'top-[50vh] -translate-y-1/2'}`}>
-        <div className="w-full max-w-2xl flex flex-col items-center relative">
-          
-          {/* Scroll to Top Arrow Button */}
-          {hasHistory && (
-            <button
-              onClick={scrollToTop}
-              className={`mb-6 p-3.5 rounded-full bg-white/[0.02] border border-cyan-400/20 text-cyan-400 backdrop-blur-xl shadow-[0_0_20px_rgba(34,211,238,0.2)] transition-all duration-500 hover:scale-110 hover:border-cyan-400/60 hover:shadow-[0_0_30px_rgba(34,211,238,0.4)] active:scale-90 group relative ${showScrollTop ? 'opacity-100 translate-y-0 scale-100 animate-[spark-jump_2s_infinite]' : 'opacity-0 translate-y-10 scale-50 pointer-events-none'}`}
-            >
-              <div className="absolute inset-0 rounded-full border border-cyan-400/10 animate-[rotating-spark_4s_linear_infinite]" />
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="group-hover:-translate-y-1 transition-transform">
-                <path d="M12 19V5M5 12l7-7 7 7" />
-              </svg>
-            </button>
-          )}
+                    <div className="p-7 sm:p-12 min-h-[200px]">
+                      {(activeTabs[idx] || 'synthesis') === 'synthesis' && (
+                        <div className="animate-fade-scale">
+                          <FormattedContent content={msg.content} />
+                          {idx === messages.length - 1 && isLoading && msg.content && (
+                            <div className="flex items-center gap-4 mt-6 opacity-40">
+                              <div className="thinking-spark-container scale-[0.6]">
+                                <div className="thinking-spark-ring border-cyan-400"></div>
+                                <div className="thinking-spark-core bg-cyan-400"></div>
+                              </div>
+                              <span className="text-[9px] font-bold uppercase tracking-[0.4em] text-white/50">
+                                Neural Stream Active...
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
-          <form onSubmit={handleSearch} className="w-full relative group/form">
-            <div className={`flex items-center relative rounded-[2rem] sm:rounded-[2.5rem] transition-all duration-700 search-glass search-focus-glow ring-1 ring-white/10 ${isLoading ? 'border-cyan-500/60 shadow-[0_0_40px_rgba(34,211,238,0.2)]' : ''}`}>
-              
-              <div className="flex-shrink-0 pl-4 sm:pl-7 pr-1">
-                <div className="w-10 h-10 flex items-center justify-center relative">
-                  <div className={`absolute inset-0 rounded-full border border-cyan-400/20 ${isLoading ? 'animate-spin' : ''}`} />
-                  <div className={`w-3 h-3 bg-cyan-400 rounded-full shadow-[0_0_12px_rgba(34,211,238,1)] ${!isLoading ? 'animate-pulse' : 'animate-ping'}`} />
-                </div>
-              </div>
+                      {(activeTabs[idx] || 'synthesis') === 'media' && (
+                        <div className="animate-fade-scale grid grid-cols-1 sm:grid-cols-2 gap-8">
+                          {msg.images?.map((img, i) => (
+                            <div key={i} className="relative rounded-2xl sm:rounded-3xl overflow-hidden border border-white/10 aspect-video bg-black/90 shadow-xl group/img">
+                              <img src={img} alt="Visual Artifact" className="w-full h-full object-cover opacity-80 group-hover/img:opacity-100 group-hover/img:scale-105 transition-all duration-700" />
+                            </div>
+                          )) || <div className="h-40 border border-dashed border-white/10 rounded-2xl flex items-center justify-center opacity-30 text-[9px] uppercase tracking-[0.5em] font-black">No artifacts found</div>}
+                        </div>
+                      )}
 
-              <div className="flex-grow relative flex items-center">
-                {ghostText && (
-                  <div className="absolute left-2.5 pointer-events-none text-white/20 text-sm sm:text-lg font-light tracking-tight whitespace-pre select-none">
-                    <span className="opacity-0">{query}</span>
-                    <span>{ghostText}</span>
+                      {(activeTabs[idx] || 'synthesis') === 'references' && (
+                        <div className="animate-fade-scale grid grid-cols-1 sm:grid-cols-2 gap-5">
+                          <div className="col-span-2 text-center opacity-20 py-16 uppercase tracking-[0.5em] text-[10px] font-black">Vayu sources integrated in markdown</div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
-                <input
-                  type="text" value={query} 
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Tab' && ghostText) {
-                      e.preventDefault();
-                      setQuery(query + ghostText);
-                    }
-                  }}
-                  placeholder={isListening ? "Listening..." : "Search with Vayu AGI..."}
-                  onFocus={() => { if(query.length >= 2) setShowSuggestions(true); }}
-                  className="w-full bg-transparent px-2.5 py-4 sm:py-5 text-white placeholder-white/20 focus:outline-none text-sm sm:text-lg font-light tracking-tight relative z-10"
-                  autoFocus
-                />
               </div>
+            ))}
 
-              <div className="flex-shrink-0 pr-4 sm:pr-6 flex items-center gap-1.5 sm:gap-2.5">
-                <button type="button" onClick={() => fileInputRef.current?.click()} className={`p-2.5 rounded-lg transition-all ${attachedFile ? 'bg-cyan-500 text-black shadow-md shadow-cyan-500/40' : 'text-white/35 hover:text-cyan-400'}`}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57a4 4 0 1 1 5.66 5.66l-8.59 8.51a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
-                </button>
-                <input type="file" ref={fileInputRef} className="hidden" onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    const reader = new FileReader();
-                    reader.onloadend = () => setAttachedFile({ data: (reader.result as string).split(',')[1], mimeType: file.type });
-                    reader.readAsDataURL(file);
-                  }
-                }} />
-                <button type="button" onClick={toggleVoiceSearch} className={`p-2.5 rounded-full transition-colors ${isListening ? 'bg-red-500/60 text-white animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'text-white/10 hover:text-cyan-400'}`}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
-                </button>
-                <button type="submit" disabled={!canSubmit || isLoading} className={`p-3.5 sm:p-4 rounded-full transition-all duration-700 ${canSubmit ? 'bg-cyan-500 text-black shadow-md shadow-cyan-500/40 active:scale-95' : 'bg-white/5 text-white/10 opacity-30'}`}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5"><path d="M5 12h14m-7-7 7 7-7 7"/></svg>
-                </button>
-              </div>
-            </div>
-
-            {/* Impressive Field-level Thinking Indicator */}
-            <FieldThinkingIndicator isLoading={isLoading} />
-
-            {showSuggestions && suggestions.length > 0 && query.length >= 2 && (
-              <div 
-                ref={suggestionRef}
-                className="absolute top-full left-0 right-0 mt-3 bg-black/60 backdrop-blur-2xl border border-white/10 rounded-[2rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[80] animate-in fade-in slide-in-from-top-2 duration-300 ring-1 ring-white/5"
-              >
-                <div className="py-3">
-                  {suggestions.map((s, i) => (
+            {!isLoading && messages.length > 0 && (
+              <section className="animate-result flex flex-col gap-8 pt-6 pb-24">
+                <div className="flex items-center gap-4 px-2">
+                  <div className="h-px flex-grow bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent" />
+                  <div className="flex items-center gap-3">
+                    <div className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+                    </div>
+                    <h3 className="text-[11px] font-black text-cyan-400/60 uppercase tracking-[0.5em] whitespace-nowrap">Neural Bridge</h3>
+                  </div>
+                  <div className="h-px flex-grow bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent" />
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                  {(messages[messages.length-1].relatedQueries || ["Explore Vayu AGI", "AI search tools", "Neural logic systems"]).map((text, i) => (
                     <button
                       key={i}
-                      type="button"
-                      onClick={() => handleSearch(undefined, s)}
-                      className="w-full px-8 py-4 text-left hover:bg-white/5 flex items-center gap-5 group transition-colors"
+                      onClick={() => handleSearch(undefined, text)}
+                      className="p-6 sm:p-9 rounded-[2rem] sm:rounded-[2.5rem] border border-white/10 bg-white/[0.015] backdrop-blur-md hover:bg-cyan-500/[0.03] hover:border-cyan-500/40 transition-all text-left group shadow-lg ring-1 ring-white/5 relative overflow-hidden"
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-white/20 group-hover:text-cyan-400"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                      <span className="text-white/60 group-hover:text-white text-[15px] font-medium tracking-tight">
-                        {s}
-                      </span>
+                      <div className="w-10 h-10 rounded-2xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 mb-5 group-hover:scale-110 group-hover:bg-cyan-500/20 transition-all group-hover:rotate-12">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3z"/></svg>
+                      </div>
+                      <span className="text-[13px] sm:text-[14px] text-white/50 group-hover:text-white transition-colors line-clamp-2 leading-relaxed font-medium tracking-tight">{text}</span>
                     </button>
                   ))}
                 </div>
-              </div>
+              </section>
             )}
-          </form>
-        </div>
-      </div>
+          </div>
+        </main>
 
-      {!hasHistory && (
-        <div className="fixed bottom-10 w-full flex flex-col items-center gap-8 animate-result delay-500">
-          <div className="flex flex-wrap justify-center gap-4 sm:gap-10 px-6">
-            <button onClick={() => handleSearch(undefined, "Markets update")} className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/50 hover:text-cyan-400 transition-all border border-white/10 px-7 py-2.5 rounded-full search-glass font-bold">Markets</button>
-            <button onClick={() => handleSearch(undefined, "AI breakthroughs")} className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/50 hover:text-cyan-400 transition-all border border-white/10 px-7 py-2.5 rounded-full search-glass font-bold">AI News</button>
-            <button onClick={() => handleSearch(undefined, "Global events today")} className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/50 hover:text-cyan-400 transition-all border border-white/10 px-7 py-2.5 rounded-full search-glass font-bold">Global</button>
-          </div>
-          <div className="flex justify-center gap-10 sm:gap-48 text-[11px] uppercase tracking-[2em] text-white/5 pointer-events-none select-none font-black opacity-30">
-            <span>Spark Vayu</span>
-            <span>Neural Logic</span>
+        <div className={`fixed left-0 right-0 px-4 flex flex-col items-center z-[70] transition-all duration-1000 ${hasHistory ? 'bottom-6 sm:bottom-10' : 'top-[50vh] -translate-y-1/2'}`}>
+          <div className="w-full max-w-2xl flex flex-col items-center relative">
+            
+            {/* Scroll to Top Arrow Button */}
+            {hasHistory && (
+              <button
+                onClick={scrollToTop}
+                className={`mb-6 p-3.5 rounded-full bg-white/[0.02] border border-cyan-400/20 text-cyan-400 backdrop-blur-xl shadow-[0_0_20px_rgba(34,211,238,0.2)] transition-all duration-500 hover:scale-110 hover:border-cyan-400/60 hover:shadow-[0_0_30px_rgba(34,211,238,0.4)] active:scale-90 group relative ${showScrollTop ? 'opacity-100 translate-y-0 scale-100 animate-[spark-jump_2s_infinite]' : 'opacity-0 translate-y-10 scale-50 pointer-events-none'}`}
+              >
+                <div className="absolute inset-0 rounded-full border border-cyan-400/10 animate-[rotating-spark_4s_linear_infinite]" />
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="group-hover:-translate-y-1 transition-transform">
+                  <path d="M12 19V5M5 12l7-7 7 7" />
+                </svg>
+              </button>
+            )}
+
+            <form onSubmit={handleSearch} className="w-full relative group/form">
+              <div className={`flex items-center relative rounded-[2rem] sm:rounded-[2.5rem] transition-all duration-700 search-glass search-focus-glow ring-1 ring-white/10 ${isLoading ? 'border-cyan-500/60 shadow-[0_0_40px_rgba(34,211,238,0.2)]' : ''}`}>
+                
+                <div className="flex-shrink-0 pl-4 sm:pl-7 pr-1">
+                  <div className="w-10 h-10 flex items-center justify-center relative">
+                    <div className={`absolute inset-0 rounded-full border border-cyan-400/20 ${isLoading ? 'animate-spin' : ''}`} />
+                    <div className={`w-3 h-3 bg-cyan-400 rounded-full shadow-[0_0_12px_rgba(34,211,238,1)] ${!isLoading ? 'animate-pulse' : 'animate-ping'}`} />
+                  </div>
+                </div>
+
+                <div className="flex-grow relative flex items-center">
+                  {ghostText && (
+                    <div className="absolute left-2.5 pointer-events-none text-white/20 text-sm sm:text-lg font-light tracking-tight whitespace-pre select-none">
+                      <span className="opacity-0">{query}</span>
+                      <span>{ghostText}</span>
+                    </div>
+                  )}
+                  <input
+                    type="text" value={query} 
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Tab' && ghostText) {
+                        e.preventDefault();
+                        setQuery(query + ghostText);
+                      }
+                    }}
+                    placeholder={isListening ? "Listening..." : "Search with Vayu AGI..."}
+                    onFocus={() => { if(query.length >= 2) setShowSuggestions(true); }}
+                    className="w-full bg-transparent px-2.5 py-4 sm:py-5 text-white placeholder-white/20 focus:outline-none text-sm sm:text-lg font-light tracking-tight relative z-10"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="flex-shrink-0 pr-4 sm:pr-6 flex items-center gap-1.5 sm:gap-2.5">
+                  <button type="button" onClick={() => fileInputRef.current?.click()} className={`p-2.5 rounded-lg transition-all ${attachedFile ? 'bg-cyan-500 text-black shadow-md shadow-cyan-500/40' : 'text-white/35 hover:text-cyan-400'}`}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57a4 4 0 1 1 5.66 5.66l-8.59 8.51a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
+                  </button>
+                  <input type="file" ref={fileInputRef} className="hidden" onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => setAttachedFile({ data: (reader.result as string).split(',')[1], mimeType: file.type });
+                      reader.readAsDataURL(file);
+                    }
+                  }} />
+                  <button type="button" onClick={toggleVoiceSearch} className={`p-2.5 rounded-full transition-colors ${isListening ? 'bg-red-500/60 text-white animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'text-white/10 hover:text-cyan-400'}`}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                  </button>
+                  <button type="submit" disabled={!canSubmit || isLoading} className={`p-3.5 sm:p-4 rounded-full transition-all duration-700 ${canSubmit ? 'bg-cyan-500 text-black shadow-md shadow-cyan-500/40 active:scale-95' : 'bg-white/5 text-white/10 opacity-30'}`}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5"><path d="M5 12h14m-7-7 7 7-7 7"/></svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Thinking Indicator */}
+              <FieldThinkingIndicator isLoading={isLoading} />
+
+              {showSuggestions && suggestions.length > 0 && query.length >= 2 && (
+                <div 
+                  ref={suggestionRef}
+                  className="absolute top-full left-0 right-0 mt-3 bg-black/60 backdrop-blur-2xl border border-white/10 rounded-[2rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[80] animate-in fade-in slide-in-from-top-2 duration-300 ring-1 ring-white/5"
+                >
+                  <div className="py-3">
+                    {suggestions.map((s, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => handleSearch(undefined, s)}
+                        className="w-full px-8 py-4 text-left hover:bg-white/5 flex items-center gap-5 group transition-colors"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-white/20 group-hover:text-cyan-400"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                        <span className="text-white/60 group-hover:text-white text-[15px] font-medium tracking-tight">
+                          {s}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </form>
           </div>
         </div>
-      )}
+
+        {!hasHistory && (
+          <div className="fixed bottom-10 left-0 right-0 flex flex-col items-center gap-8 animate-result delay-500">
+            <div className="flex flex-wrap justify-center gap-4 sm:gap-6 px-6">
+              <button onClick={() => handleSearch(undefined, "Markets update")} className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/50 hover:text-cyan-400 transition-all border border-white/10 px-7 py-2.5 rounded-full search-glass font-bold">Markets</button>
+              <button onClick={() => handleSearch(undefined, "Academic research topics")} className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/50 hover:text-cyan-400 transition-all border border-white/10 px-7 py-2.5 rounded-full search-glass font-bold">Research</button>
+              <button onClick={() => handleSearch(undefined, "AI breakthroughs")} className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/50 hover:text-cyan-400 transition-all border border-white/10 px-7 py-2.5 rounded-full search-glass font-bold">AI News</button>
+              <button onClick={() => handleSearch(undefined, "Global events today")} className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/50 hover:text-cyan-400 transition-all border border-white/10 px-7 py-2.5 rounded-full search-glass font-bold">Global</button>
+            </div>
+            <div className="flex justify-center gap-10 sm:gap-48 text-[11px] uppercase tracking-[2em] text-white/5 pointer-events-none select-none font-black opacity-30">
+              <span>Spark Vayu</span>
+              <span>Neural Logic</span>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
