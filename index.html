@@ -37,15 +37,6 @@
         caret-color: #22d3ee;
       }
 
-      .layout-transition {
-        transition: all 0.8s cubic-bezier(0.22, 1, 0.36, 1);
-      }
-
-      @keyframes slide-up-reveal {
-        0% { opacity: 0; transform: translateY(12px); filter: blur(8px); }
-        100% { opacity: 1; transform: translateY(0); filter: blur(0); }
-      }
-
       @keyframes spark-active-pulse {
         0%, 100% { 
           text-shadow: 0 0 35px rgba(var(--accent-rgb), 0.6), 0 0 70px rgba(var(--accent-rgb), 0.3), 0 0 100px rgba(var(--accent-rgb), 0.1);
@@ -120,10 +111,6 @@
 
       .header-loading-glow {
         animation: header-glow-pulse 2.5s infinite ease-in-out;
-      }
-
-      .animate-result {
-        animation: slide-up-reveal 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
       }
 
       .spark-glow {
