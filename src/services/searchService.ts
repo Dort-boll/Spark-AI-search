@@ -129,8 +129,23 @@ const PROXIES = [
 const searchCache = new Map<string, { data: SearchResponse, timestamp: number }>();
 const CACHE_TTL = 1000 * 60 * 10; // 10 minutes
 
+declare const puter: any;
+
 async function fetchWithProxy(url: string, signal: AbortSignal) {
-  // Try direct fetch first (some instances support CORS)
+  // Try Puter.js fetch first (best for bypassing CORS)
+  if (typeof puter !== 'undefined' && puter.net && puter.net.fetch) {
+    try {
+      const response = await puter.net.fetch(url, { signal });
+      if (response.ok) {
+        const text = await response.text();
+        if (text && text.length > 100) return text;
+      }
+    } catch (e) {
+      // Continue to other proxies
+    }
+  }
+
+  // Try direct fetch next (some instances support CORS)
   try {
     const directResponse = await fetch(url, { signal, mode: 'cors' });
     if (directResponse.ok) {
@@ -272,6 +287,51 @@ export async function performSearch(query: string, category: string = 'general',
   }
 
   const startTime = Date.now();
+  let finalResults: SearchResult[] = [];
+  let instanceUsed: string | null = "Spark Local Search Engine";
+  let enginesUsed: Set<string> = new Set(["DuckDuckGo"]);
+
+  try {
+    const endpoint = category === 'images' ? '/api/images' : category === 'videos' ? '/api/videos' : '/api/search';
+    const response = await fetch(`${endpoint}?q=${encodeURIComponent(query)}`);
+    if (!response.ok) throw new Error("Search failed");
+    const data = await response.json();
+
+    finalResults = data.results.map((r: any) => ({
+      type: category,
+      title: r.title,
+      url: r.url || r.link || r.source || "#",
+      snippet: r.snippet || r.content || "",
+      thumbnail: r.thumbnail || r.image_url || null,
+      favicon: `https://www.google.com/s2/favicons?domain=${new URL(r.url || r.link || r.source || "http://localhost").hostname}&sz=32`,
+      metadata: { domain: new URL(r.url || r.link || r.source || "http://localhost").hostname, engine: 'DuckDuckGo' }
+    }));
+  } catch (e) {
+    // Local search failed (likely rate limited), falling back to decentralized search
+    return performSearchFallback(query, category, safebased, fastMode);
+  }
+
+  const endTime = Date.now();
+  const searchTime = ((endTime - startTime) / 1000).toFixed(2);
+
+  const response: SearchResponse = {
+    query,
+    category,
+    results: finalResults.slice(0, 25),
+    aggregations: {
+      count: finalResults.length,
+      engines: Array.from(enginesUsed),
+      instance: instanceUsed,
+      time: searchTime
+    }
+  };
+
+  searchCache.set(cacheKey, { data: response, timestamp: Date.now() });
+  return response;
+}
+
+async function performSearchFallback(query: string, category: string = 'general', safebased: boolean = true, fastMode: boolean = false): Promise<SearchResponse> {
+  const startTime = Date.now();
   const shuffled = [...SEARXNG_INSTANCES].sort(() => Math.random() - 0.5);
   let finalResults: SearchResult[] = [];
   let instanceUsed: string | null = null;
@@ -340,7 +400,6 @@ export async function performSearch(query: string, category: string = 'general',
             let domain = "unknown";
             try { domain = new URL(r.url || "http://localhost").hostname; } catch(e) {}
             
-            // Clean title and snippet
             const cleanTitle = (r.title || "No Title").replace(/<[^>]*>?/gm, '').trim();
             const cleanSnippet = (r.content || r.snippet || "").replace(/<[^>]*>?/gm, '').trim();
             
@@ -356,8 +415,6 @@ export async function performSearch(query: string, category: string = 'general',
           });
 
           finalResults.push(...mapped);
-          
-          // If we have enough results, we can stop early to be fast
           if (finalResults.length >= 12) break;
         }
       }
@@ -372,13 +429,11 @@ export async function performSearch(query: string, category: string = 'general',
     throw new Error("No results found.");
   }
 
-  // Final deduplication
   const uniqueResults = Array.from(new Map(finalResults.map(item => [item.url, item])).values());
-
   const endTime = Date.now();
   const searchTime = ((endTime - startTime) / 1000).toFixed(2);
 
-  const response: SearchResponse = {
+  return {
     query,
     category,
     results: uniqueResults.slice(0, 25),
@@ -389,9 +444,6 @@ export async function performSearch(query: string, category: string = 'general',
       time: searchTime
     }
   };
-
-  searchCache.set(cacheKey, { data: response, timestamp: Date.now() });
-  return response;
 }
 
 export async function fetchSuggestions(query: string): Promise<string[]> {

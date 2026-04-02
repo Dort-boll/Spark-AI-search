@@ -9,7 +9,7 @@ export interface SearchResult {
 
 export interface UsageStats {
   estimatedTokens: number;
-  engine: 'Vayu AGI Synthesis' | 'Local Cache';
+  engine: 'Spark AI Synthesis' | 'Local Cache' | 'Quick Search Fallback';
   isCached: boolean;
   latency?: number;
 }

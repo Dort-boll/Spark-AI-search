@@ -1,6 +1,6 @@
 {
-  "name": "spark",
-  "description": "A lightweight, futuristic AGI search interface focused on real-time accuracy and optimized resource usage.",
+  "name": "Spark AI",
+  "description": "A high-performance AI assistant with real-time web browsing capabilities, powered by Puter.js and GPT-4.1-mini.",
   "requestFramePermissions": [
     "microphone"
   ]

@@ -8,7 +8,7 @@ import { puterService, AttachedFile } from './puterService';
 import { ChatMessage, UsageStats } from './types';
 
 // TYPES
-type ViewMode = 'synthesis' | 'media' | 'references' | 'neural-artifacts';
+type ViewMode = 'synthesis' | 'media' | 'references' | 'sources' | 'neural-artifacts';
 
 // CUSTOM THEMED CURSOR
 const CustomCursor: React.FC = () => {
@@ -120,7 +120,7 @@ const SparkleTitle: React.FC<{ hasHistory: boolean; isLoading: boolean; onReset:
         <motion.span 
           layout
           className={`text-[11px] font-bold text-cyan-400/40 uppercase tracking-[1.5em] mt-3 transition-all duration-1000 ${hasHistory ? 'opacity-0 h-0 overflow-hidden' : 'opacity-100'}`}>
-          Vayu AGI Synthesis
+          Intelligence Reimagined
         </motion.span>
       </motion.button>
     </motion.div>
@@ -139,7 +139,7 @@ const FieldThinkingIndicator: React.FC<{ isLoading: boolean }> = ({ isLoading })
         />
         <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap">
            <span className="text-[9px] font-black text-cyan-400/40 uppercase tracking-[0.5em] animate-pulse">
-             Neural Link Active
+             Spark Neural Link Active
            </span>
         </div>
       </div>
@@ -162,7 +162,7 @@ const ThinkingIndicator: React.FC<{ engine?: UsageStats['engine']; step?: string
       </div>
       <div className="flex flex-col">
         <span className={`text-[12px] font-black uppercase tracking-[0.6em] animate-pulse ${isCached ? 'text-green-400' : 'text-cyan-400'}`}>
-          {isCached ? 'Memory Sector' : 'Vayu Neural Uplink'}
+          {isCached ? 'Memory Sector' : 'Spark Neural Uplink'}
         </span>
         <span className="text-[10px] text-white/50 uppercase tracking-[0.2em] mt-1.5 font-mono italic">
           {step || 'Processing inquiry...'}
@@ -274,8 +274,9 @@ const FormattedContent: React.FC<{ content: string }> = React.memo(({ content })
 const UsageBadge: React.FC<{ usage?: UsageStats }> = ({ usage }) => {
   if (!usage) return null;
   const labels: Record<string, string> = {
-    'Vayu AGI Synthesis': 'Vayu Node 4.0',
-    'Local Cache': 'Memory Sector'
+    'Spark AI Synthesis': 'Spark Node 4.0',
+    'Local Cache': 'Memory Sector',
+    'Quick Search Fallback': 'Neural Fallback'
   };
   
   const colorClass = usage.isCached ? 'text-green-400' : 'text-cyan-400';
@@ -297,6 +298,68 @@ const UsageBadge: React.FC<{ usage?: UsageStats }> = ({ usage }) => {
   );
 };
 
+const QuickResults: React.FC<{ sources?: any[], images?: any[], videos?: any[] }> = ({ sources, images, videos }) => {
+  if (!sources?.length && !images?.length && !videos?.length) return null;
+  
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex flex-col gap-8 mt-8 p-6 sm:p-10 rounded-[2rem] bg-white/[0.02] border border-white/[0.05] shadow-2xl ring-1 ring-white/5 overflow-hidden"
+    >
+      <div className="flex items-center gap-4 mb-2">
+        <div className="w-8 h-8 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 shrink-0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+          </svg>
+        </div>
+        <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400/60">Neural Search Results</h3>
+      </div>
+      
+      {sources && sources.length > 0 && (
+        <div className="flex flex-col gap-4">
+          <h4 className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/30">Verified Links</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {sources.slice(0, 4).map((s, i) => (
+              <a key={i} href={s.uri} target="_blank" rel="noopener noreferrer" className="p-4 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-cyan-500/10 hover:border-cyan-500/30 transition-all flex items-center gap-3 group/link min-w-0">
+                <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center text-[9px] font-bold text-white/40 group-hover/link:text-cyan-400 shrink-0">{i+1}</div>
+                <span className="text-[11px] text-white/70 truncate group-hover/link:text-white font-medium">{s.title}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {images && images.length > 0 && (
+        <div className="flex flex-col gap-4">
+          <h4 className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/30">Visual Context</h4>
+          <div className="flex gap-3 overflow-x-auto pb-4 custom-scroll no-scrollbar -mx-2 px-2">
+            {images.slice(0, 8).map((img, i) => (
+              <div key={i} className="relative shrink-0 group/qimg">
+                <img 
+                  src={img.thumbnail || img.url} 
+                  alt={img.title}
+                  className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl object-cover border border-white/10 hover:scale-105 transition-all duration-500 cursor-pointer shadow-lg" 
+                  onClick={() => window.open(img.url, '_blank')} 
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = `https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=400`;
+                  }}
+                />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/qimg:opacity-100 transition-opacity rounded-2xl pointer-events-none flex items-center justify-center">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
+                  </svg>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
 const App: React.FC = () => {
   const [isPuterReady, setIsPuterReady] = useState(false);
   const [query, setQuery] = useState('');
@@ -304,7 +367,7 @@ const App: React.FC = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState<string | undefined>();
-  const [currentEngine, setCurrentEngine] = useState<UsageStats['engine']>('Vayu AGI Synthesis');
+  const [currentEngine, setCurrentEngine] = useState<UsageStats['engine']>('Spark AI Synthesis');
   const [isListening, setIsListening] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -394,7 +457,7 @@ const App: React.FC = () => {
   const handleSearch = async (e?: React.FormEvent, overrideQuery?: string) => {
     e?.preventDefault();
     if (!isPuterReady) {
-      setError("Vayu Neural Interface is still initializing...");
+      setError("Spark Neural Interface is still initializing...");
       return;
     }
     const finalQuery = (overrideQuery || query).trim();
@@ -407,8 +470,8 @@ const App: React.FC = () => {
     const userMsgIdx = messages.length;
     setMessages(prev => [...prev, { role: 'user', content: finalQuery || "Analyze Payload" }]);
     setIsLoading(true);
-    setCurrentStep("Initializing Vayu Node...");
-    setCurrentEngine('Vayu AGI Synthesis');
+    setCurrentStep("Initializing Spark Node...");
+    setCurrentEngine('Spark AI Synthesis');
     setError(null);
 
     const startTime = Date.now();
@@ -420,33 +483,42 @@ const App: React.FC = () => {
       
       let assistantMsgAdded = false;
       let accumulatedText = '';
-      let loopEngine: UsageStats['engine'] = 'Vayu AGI Synthesis';
+      let loopEngine: UsageStats['engine'] = 'Spark AI Synthesis';
 
       for await (const chunk of stream) {
         if (chunk.step) setCurrentStep(chunk.step);
         if (chunk.engine) loopEngine = chunk.engine;
         setCurrentEngine(loopEngine);
 
-        if (!chunk.done && chunk.text) {
-          accumulatedText += chunk.text;
+        const hasContent = chunk.text || chunk.images || chunk.videos || chunk.sources;
+
+        if (!chunk.done && hasContent) {
+          if (chunk.text) accumulatedText += chunk.text;
+          
           if (!assistantMsgAdded) {
             setMessages(prev => [...prev, { 
               role: 'assistant', 
               content: accumulatedText, 
               images: chunk.images,
               videos: chunk.videos,
+              sources: chunk.sources,
               usage: { estimatedTokens: 0, engine: loopEngine, isCached: chunk.isCached || false } 
             }]);
             assistantMsgAdded = true;
+            // If it's a fallback, maybe switch to sources tab? 
+            // Actually, let's keep it on synthesis but show the results below.
             setActiveTabs(prev => ({ ...prev, [userMsgIdx + 1]: 'synthesis' }));
           } else {
             setMessages(prev => {
               const newMsgs = [...prev];
-              newMsgs[newMsgs.length - 1] = { 
-                ...newMsgs[newMsgs.length - 1], 
+              const lastIdx = newMsgs.length - 1;
+              if (lastIdx < 0) return prev;
+              newMsgs[lastIdx] = { 
+                ...newMsgs[lastIdx], 
                 content: accumulatedText,
-                images: chunk.images || newMsgs[newMsgs.length - 1].images,
-                videos: chunk.videos || newMsgs[newMsgs.length - 1].videos,
+                images: chunk.images || newMsgs[lastIdx].images,
+                videos: chunk.videos || newMsgs[lastIdx].videos,
+                sources: chunk.sources || newMsgs[lastIdx].sources,
                 usage: { estimatedTokens: 0, engine: loopEngine, isCached: chunk.isCached || false, latency: Date.now() - startTime }
               };
               return newMsgs;
@@ -479,7 +551,7 @@ const App: React.FC = () => {
       }
     } catch (error: any) {
       console.error("Critical Failure:", error);
-      setError("Vayu core disconnect detected.");
+      setError("Spark core disconnect detected.");
       setIsLoading(false);
     } finally {
       setIsLoading(false);
@@ -547,7 +619,7 @@ const App: React.FC = () => {
             <div className="thinking-spark-core bg-cyan-400"></div>
           </div>
           <span className="text-[10px] font-black text-cyan-400/60 uppercase tracking-[0.8em] animate-pulse">
-            Initializing Vayu Neural Bridge
+            Initializing Spark Neural Bridge
           </span>
         </div>
       )}
@@ -592,9 +664,10 @@ const App: React.FC = () => {
                     <div className="flex flex-col border border-white/[0.08] bg-white/[0.02] backdrop-blur-[60px] rounded-[2rem] sm:rounded-[2.8rem] overflow-hidden shadow-2xl transition-all ring-1 ring-white/5 relative">
                       <div className="flex flex-wrap items-center px-5 sm:px-8 py-4 border-b border-white/[0.03] bg-white/[0.02] gap-2">
                         <div className="flex bg-white/[0.05] p-1 rounded-full gap-0.5 border border-white/5">
-                          {['synthesis', 'media', 'references', 'neural-artifacts'].map((tab) => {
+                          {['synthesis', 'media', 'references', 'sources', 'neural-artifacts'].map((tab) => {
                             const hasMedia = tab === 'media' && (msg.images?.length || 0) > 0;
                             const hasVideos = tab === 'references' && (msg.videos?.length || 0) > 0;
+                            const hasSources = tab === 'sources' && (msg.sources?.length || 0) > 0;
                             const hasArtifacts = tab === 'neural-artifacts' && (msg.aiImage || msg.aiVideo);
                             return (
                               <button
@@ -607,7 +680,7 @@ const App: React.FC = () => {
                                 }`}
                               >
                                 {tab === 'references' ? 'Videos' : tab === 'media' ? 'Images' : tab === 'neural-artifacts' ? 'AI Visuals' : tab}
-                                {(hasMedia || hasVideos || hasArtifacts) && (
+                                {(hasMedia || hasVideos || hasSources || hasArtifacts) && (
                                   <span className="absolute -top-1 -right-1 w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_8px_rgba(34,211,238,0.8)] animate-pulse" />
                                 )}
                               </button>
@@ -642,7 +715,12 @@ const App: React.FC = () => {
                               transition={{ duration: 0.3 }}
                             >
                               <FormattedContent content={msg.content} />
-                              {idx === messages.length - 1 && isLoading && msg.content && (
+                              
+                              {(msg.usage?.engine === 'Quick Search Fallback' || (!msg.content && msg.sources?.length)) && (
+                                <QuickResults sources={msg.sources} images={msg.images} videos={msg.videos} />
+                              )}
+
+                              {idx === messages.length - 1 && isLoading && (
                                 <div className="flex items-center gap-4 mt-8 p-4 rounded-2xl bg-cyan-500/5 border border-cyan-500/10">
                                   <div className="thinking-spark-container scale-[0.6]">
                                     <div className="thinking-spark-ring border-cyan-400"></div>
@@ -764,6 +842,48 @@ const App: React.FC = () => {
                               </motion.div>
                             )}
 
+                            {(activeTabs[idx] || 'synthesis') === 'sources' && (
+                              <motion.div 
+                                key="sources"
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: 10 }}
+                                transition={{ duration: 0.3 }}
+                                className="flex flex-col gap-6"
+                              >
+                                {msg.sources && msg.sources.length > 0 ? (
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {msg.sources.map((source, i) => (
+                                      <motion.a
+                                        key={i}
+                                        href={source.uri}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: i * 0.05 }}
+                                        className="p-5 rounded-2xl bg-white/[0.03] border border-white/10 hover:bg-cyan-500/10 hover:border-cyan-400/30 transition-all group/source flex flex-col gap-2"
+                                      >
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-[10px] font-bold text-white/40 group-hover/source:text-cyan-400 transition-colors">
+                                            {i + 1}
+                                          </div>
+                                          <span className="text-[11px] font-bold text-white/80 group-hover/source:text-white transition-colors truncate">
+                                            {source.title}
+                                          </span>
+                                        </div>
+                                        <span className="text-[9px] text-white/30 truncate font-mono">
+                                          {source.uri}
+                                        </span>
+                                      </motion.a>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="h-40 border border-dashed border-white/10 rounded-2xl flex items-center justify-center opacity-30 text-[9px] uppercase tracking-[0.5em] font-black">No sources found</div>
+                                )}
+                              </motion.div>
+                            )}
+
                             {(activeTabs[idx] || 'synthesis') === 'neural-artifacts' && (
                               <motion.div 
                                 key="neural-artifacts"
@@ -840,7 +960,7 @@ const App: React.FC = () => {
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                  {(messages[messages.length-1].relatedQueries || ["Explore Vayu AGI", "Vayu AGI search tools", "Neural logic systems"]).map((text, i) => (
+                  {(messages[messages.length-1].relatedQueries || ["Explore Spark AI", "Spark AI search tools", "Neural logic systems"]).map((text, i) => (
                     <button
                       key={i}
                       onClick={() => handleSearch(undefined, text)}
@@ -909,7 +1029,7 @@ const App: React.FC = () => {
                           setQuery(query + ghostText);
                         }
                       }}
-                      placeholder={isListening ? "Listening..." : "Search with Vayu AGI..."}
+                      placeholder={isListening ? "Listening..." : "Search with Spark AI..."}
                       onFocus={() => { if(query.length >= 2) setShowSuggestions(true); }}
                       className="w-full bg-transparent px-2.5 py-4 sm:py-5 text-white placeholder-white/20 focus:outline-none text-sm sm:text-lg font-light tracking-tight relative z-10"
                       autoFocus
@@ -972,11 +1092,11 @@ const App: React.FC = () => {
               <div className="flex flex-wrap justify-center gap-4 sm:gap-6 px-6">
                 <button onClick={() => handleSearch(undefined, "Markets update")} className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/50 hover:text-cyan-400 transition-all border border-white/10 px-7 py-2.5 rounded-full search-glass font-bold">Markets</button>
                 <button onClick={() => handleSearch(undefined, "Academic research topics")} className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/50 hover:text-cyan-400 transition-all border border-white/10 px-7 py-2.5 rounded-full search-glass font-bold">Research</button>
-                <button onClick={() => handleSearch(undefined, "Vayu AGI breakthroughs")} className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/50 hover:text-cyan-400 transition-all border border-white/10 px-7 py-2.5 rounded-full search-glass font-bold">Vayu News</button>
+                <button onClick={() => handleSearch(undefined, "Spark AI breakthroughs")} className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/50 hover:text-cyan-400 transition-all border border-white/10 px-7 py-2.5 rounded-full search-glass font-bold">Spark News</button>
                 <button onClick={() => handleSearch(undefined, "Global events today")} className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/50 hover:text-cyan-400 transition-all border border-white/10 px-7 py-2.5 rounded-full search-glass font-bold">Global</button>
               </div>
               <div className="flex justify-center gap-10 sm:gap-48 text-[11px] uppercase tracking-[2em] text-white/5 pointer-events-none select-none font-black opacity-30">
-                <span>Spark Vayu</span>
+                <span>Spark AI</span>
                 <span>Neural Logic</span>
               </div>
             </div>
