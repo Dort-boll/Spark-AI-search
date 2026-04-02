@@ -301,6 +301,9 @@ const UsageBadge: React.FC<{ usage?: UsageStats }> = ({ usage }) => {
 const QuickResults: React.FC<{ sources?: any[], images?: any[], videos?: any[] }> = ({ sources, images, videos }) => {
   if (!sources?.length && !images?.length && !videos?.length) return null;
   
+  const instantAnswer = sources?.find(s => s.type === 'instant_answer');
+  const otherSources = sources?.filter(s => s.type !== 'instant_answer') || [];
+  
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
@@ -316,11 +319,27 @@ const QuickResults: React.FC<{ sources?: any[], images?: any[], videos?: any[] }
         <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400/60">Neural Search Results</h3>
       </div>
       
-      {sources && sources.length > 0 && (
+      {instantAnswer && (
+        <div className="flex flex-col gap-4">
+          <h4 className="text-[9px] font-bold uppercase tracking-[0.2em] text-cyan-400/80 flex items-center gap-2">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+            </svg>
+            Instant Answer
+          </h4>
+          <a href={instantAnswer.uri} target="_blank" rel="noopener noreferrer" className="p-6 rounded-2xl bg-cyan-500/10 border border-cyan-400/30 hover:bg-cyan-500/20 transition-all flex flex-col gap-3 group/ia shadow-[0_0_20px_rgba(34,211,238,0.1)]">
+            <span className="text-[14px] text-cyan-50 font-bold group-hover/ia:text-white">{instantAnswer.title}</span>
+            {instantAnswer.snippet && <p className="text-[13px] text-cyan-100/80 leading-relaxed">{instantAnswer.snippet}</p>}
+            <span className="text-[10px] text-cyan-400/50 font-mono mt-1">{instantAnswer.uri}</span>
+          </a>
+        </div>
+      )}
+      
+      {otherSources.length > 0 && (
         <div className="flex flex-col gap-4">
           <h4 className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/30">Verified Links</h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {sources.slice(0, 4).map((s, i) => (
+            {otherSources.slice(0, 4).map((s, i) => (
               <a key={i} href={s.uri} target="_blank" rel="noopener noreferrer" className="p-4 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-cyan-500/10 hover:border-cyan-500/30 transition-all flex items-center gap-3 group/link min-w-0">
                 <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center text-[9px] font-bold text-white/40 group-hover/link:text-cyan-400 shrink-0">{i+1}</div>
                 <span className="text-[11px] text-white/70 truncate group-hover/link:text-white font-medium">{s.title}</span>
@@ -714,6 +733,28 @@ const App: React.FC = () => {
                               exit={{ opacity: 0, x: 10 }}
                               transition={{ duration: 0.3 }}
                             >
+                              {msg.sources?.find(s => s.type === 'instant_answer') && (
+                                <div className="mb-8 p-6 sm:p-8 rounded-[2rem] bg-cyan-500/10 border border-cyan-400/30 shadow-[0_0_30px_rgba(34,211,238,0.1)] relative overflow-hidden group">
+                                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-400/0 via-cyan-400/50 to-cyan-400/0 opacity-50"></div>
+                                  <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-8 h-8 rounded-xl bg-cyan-400/20 flex items-center justify-center text-cyan-300">
+                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                                      </svg>
+                                    </div>
+                                    <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-400/80">Instant Answer</h4>
+                                  </div>
+                                  <h3 className="text-xl font-bold text-cyan-50 mb-3">{msg.sources.find(s => s.type === 'instant_answer')?.title}</h3>
+                                  <p className="text-base text-cyan-100/90 leading-relaxed mb-4">{msg.sources.find(s => s.type === 'instant_answer')?.snippet}</p>
+                                  <a href={msg.sources.find(s => s.type === 'instant_answer')?.uri} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-cyan-400 hover:text-cyan-300 transition-colors">
+                                    Read More
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                      <path d="M5 12h14M12 5l7 7-7 7" />
+                                    </svg>
+                                  </a>
+                                </div>
+                              )}
+                              
                               <FormattedContent content={msg.content} />
                               
                               {(msg.usage?.engine === 'Quick Search Fallback' || (!msg.content && msg.sources?.length)) && (
@@ -852,7 +893,7 @@ const App: React.FC = () => {
                                 className="flex flex-col gap-6"
                               >
                                 {msg.sources && msg.sources.length > 0 ? (
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                  <div className="flex flex-col gap-4">
                                     {msg.sources.map((source, i) => (
                                       <motion.a
                                         key={i}
@@ -862,19 +903,44 @@ const App: React.FC = () => {
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: i * 0.05 }}
-                                        className="p-5 rounded-2xl bg-white/[0.03] border border-white/10 hover:bg-cyan-500/10 hover:border-cyan-400/30 transition-all group/source flex flex-col gap-2"
+                                        className={`p-5 rounded-2xl border transition-all group/source flex flex-col gap-3 ${
+                                          source.type === 'instant_answer' 
+                                            ? 'bg-cyan-500/10 border-cyan-400/50 hover:bg-cyan-500/20 shadow-[0_0_15px_rgba(34,211,238,0.15)]' 
+                                            : 'bg-white/[0.03] border-white/10 hover:bg-cyan-500/10 hover:border-cyan-400/30'
+                                        }`}
                                       >
                                         <div className="flex items-center gap-3">
-                                          <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-[10px] font-bold text-white/40 group-hover/source:text-cyan-400 transition-colors">
-                                            {i + 1}
+                                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold transition-colors shrink-0 ${
+                                            source.type === 'instant_answer'
+                                              ? 'bg-cyan-400/20 text-cyan-300'
+                                              : 'bg-white/5 text-white/40 group-hover/source:text-cyan-400'
+                                          }`}>
+                                            {source.type === 'instant_answer' ? (
+                                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                                              </svg>
+                                            ) : (
+                                              i + 1
+                                            )}
                                           </div>
-                                          <span className="text-[11px] font-bold text-white/80 group-hover/source:text-white transition-colors truncate">
-                                            {source.title}
-                                          </span>
+                                          <div className="flex flex-col min-w-0">
+                                            <span className={`text-[13px] font-bold truncate transition-colors ${
+                                              source.type === 'instant_answer' ? 'text-cyan-100' : 'text-white/80 group-hover/source:text-white'
+                                            }`}>
+                                              {source.title}
+                                            </span>
+                                            <span className="text-[9px] text-white/30 truncate font-mono">
+                                              {source.uri}
+                                            </span>
+                                          </div>
                                         </div>
-                                        <span className="text-[9px] text-white/30 truncate font-mono">
-                                          {source.uri}
-                                        </span>
+                                        {source.snippet && (
+                                          <p className={`text-sm leading-relaxed ${
+                                            source.type === 'instant_answer' ? 'text-cyan-50/90 font-medium' : 'text-white/60'
+                                          }`}>
+                                            {source.snippet}
+                                          </p>
+                                        )}
                                       </motion.a>
                                     ))}
                                   </div>

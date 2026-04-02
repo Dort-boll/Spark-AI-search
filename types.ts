@@ -4,6 +4,8 @@ export interface SearchResult {
   sources: Array<{
     title: string;
     uri: string;
+    snippet?: string;
+    type?: string;
   }>;
 }
 
@@ -34,7 +36,7 @@ export interface ChatMessage {
   videos?: MediaResult[];
   aiImage?: string;
   aiVideo?: string;
-  sources?: Array<{ title: string; uri: string }>;
+  sources?: Array<{ title: string; uri: string; snippet?: string; type?: string }>;
   relatedQueries?: string[]; 
   usage?: UsageStats;
 }

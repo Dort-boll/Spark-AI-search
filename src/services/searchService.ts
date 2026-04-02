@@ -1,81 +1,7 @@
 /**
- * Decentralized Search Service (Frontend Only)
- * This service aggregates results from multiple SearXNG instances directly in the browser.
+ * Frontend-Only Search Service
+ * Integrates DuckDuckGo (Web, Images, Videos) and Wikipedia API directly from the browser using Puter.js.
  */
-
-const SEARXNG_INSTANCES = Array.from(new Set([
-  "https://searx.be",
-  "https://searxng.site",
-  "https://priv.au",
-  "https://searx.work",
-  "https://search.inetol.net",
-  "https://opnxng.com",
-  "https://searx.tiekoetter.com",
-  "https://search.rhscz.eu",
-  "https://searx.xyz",
-  "https://searx.space",
-  "https://searx.info",
-  "https://searx.mx",
-  "https://searx.divided-by-zero.eu",
-  "https://searx.stuehmer.dk",
-  "https://search.bus-hit.me",
-  "https://searx.fyi",
-  "https://searx.sethforprivacy.com",
-  "https://searx.tuxcloud.net",
-  "https://searx.gnous.eu",
-  "https://searx.ctis.me",
-  "https://searx.dresden.network",
-  "https://searx.perennialte.ch",
-  "https://searx.rofl.wtf",
-  "https://searx.daetalytica.io",
-  "https://searx.oakley.xyz",
-  "https://searx.org",
-  "https://search.ononoki.org",
-  "https://searx.prvcy.eu",
-  "https://searx.mha.fi",
-  "https://searx.namei.net.au",
-  "https://searx.ninja",
-  "https://searx.ru",
-  "https://searx.haxtrax.com",
-  "https://searx.lre.io",
-  "https://search.disroot.org",
-  "https://searx.nixnet.services",
-  "https://searx.zapashny.ru",
-  "https://searx.rv.ua",
-  "https://searx.mastodontech.de",
-  "https://searx.sp-codes.de",
-  "https://searx.ch",
-  "https://searx.de",
-  "https://searx.laquadrature.net",
-  "https://searx.me",
-  "https://searx.pw",
-  "https://searx.run",
-  "https://searx.sh",
-  "https://searx.tv",
-  "https://searx.uk",
-  "https://searx.us",
-  "https://searx.world",
-  "https://searx.flandre.pw",
-  "https://searx.neocities.org",
-  "https://searx.gnu.style",
-  "https://searx.open-source.io",
-  "https://searx.web.id",
-  "https://searx.win",
-  "https://searx.top",
-  "https://searx.pro",
-  "https://searx.site",
-  "https://searx.cloud",
-  "https://searx.network",
-  "https://searx.digital",
-  "https://searx.tech",
-  "https://searx.online",
-  "https://searxng.nicfab.it",
-  "https://searx.catfluori.de",
-  "https://searx.si",
-  "https://searx.sunshine.it",
-  "https://searx.web-home.org",
-  "https://search.rowie.at"
-]));
 
 export interface SearchResult {
   type: string;
@@ -105,178 +31,166 @@ export interface SearchResponse {
   aggregations: SearchAggregations;
 }
 
-export interface InstantAnswer {
-  AbstractText: string;
-  AbstractSource: string;
-  AbstractURL: string;
-  Image: string;
-  Heading: string;
-  RelatedTopics?: Array<{
-    Text: string;
-    FirstURL: string;
-  }>;
-}
-
-const PROXIES = [
-  "https://api.allorigins.win/get?url=",
-  "https://corsproxy.io/?",
-  "https://api.codetabs.com/v1/proxy?quest=",
-  "https://api.allorigins.win/raw?url=",
-  "https://cors-anywhere.herokuapp.com/"
-];
-
 // Simple in-memory cache
 const searchCache = new Map<string, { data: SearchResponse, timestamp: number }>();
 const CACHE_TTL = 1000 * 60 * 10; // 10 minutes
 
 declare const puter: any;
 
-async function fetchWithProxy(url: string, signal: AbortSignal) {
-  // Try Puter.js fetch first (best for bypassing CORS)
+async function fetchWithPuter(url: string, options?: any) {
   if (typeof puter !== 'undefined' && puter.net && puter.net.fetch) {
     try {
-      const response = await puter.net.fetch(url, { signal });
+      const response = await puter.net.fetch(url, options);
       if (response.ok) {
-        const text = await response.text();
-        if (text && text.length > 100) return text;
+        return await response.text();
       }
     } catch (e) {
-      // Continue to other proxies
+      console.warn("Puter fetch failed, falling back to direct fetch", e);
     }
   }
-
-  // Try direct fetch next (some instances support CORS)
-  try {
-    const directResponse = await fetch(url, { signal, mode: 'cors' });
-    if (directResponse.ok) {
-      const text = await directResponse.text();
-      if (text && text.length > 100) return text;
-    }
-  } catch (e) {
-    // Continue to proxies
+  
+  // Fallback to direct fetch (might fail due to CORS)
+  const response = await fetch(url, options);
+  if (response.ok) {
+    return await response.text();
   }
-
-  const shuffledProxies = [...PROXIES].sort(() => Math.random() - 0.5);
-  for (const proxy of shuffledProxies) {
-    try {
-      const proxyUrl = proxy.includes('allorigins') 
-        ? `${proxy}${encodeURIComponent(url)}`
-        : `${proxy}${url}`;
-      
-      const response = await fetch(proxyUrl, { 
-        signal,
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest'
-        }
-      });
-      
-      if (response.ok) {
-        if (proxy.includes('allorigins')) {
-          const data: any = await response.json();
-          if (data.contents) return data.contents;
-        } else {
-          const text = await response.text();
-          if (text && text.length > 100) return text;
-        }
-      }
-    } catch (e) {
-      // Try next proxy
-    }
-  }
-  throw new Error("Proxy failed");
+  throw new Error(`Fetch failed for ${url}`);
 }
 
-async function fetchFromInstance(instance: string, query: string, category: string, safebased: boolean, signal: AbortSignal) {
-  const categoriesToTry = category === 'images' ? ['images'] : category === 'videos' ? ['videos'] : ['general'];
-  const safeParam = safebased ? '&safesearch=1' : '&safesearch=0';
-  
-  const engineParam = category === 'images' 
-    ? '&engines=google images,bing images,qwant images,flickr,duckduckgo images'
-    : category === 'videos'
-      ? '&engines=youtube,vimeo,dailymotion,twitch,google videos'
-      : '&engines=google,bing,duckduckgo,qwant,startpage';
-
-  for (const catName of categoriesToTry) {
-    const categoryParam = `&categories=${catName}`;
-    const searchUrl = `${instance}/search?q=${encodeURIComponent(query)}&format=json${categoryParam}${engineParam}${safeParam}`;
-    
-    // Try up to 2 times for each instance with different proxies if needed
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const content = await fetchWithProxy(searchUrl, signal);
-        if (!content) continue;
-
-        try {
-          const data = JSON.parse(content);
-          if (data.results && Array.isArray(data.results) && data.results.length > 0) {
-            const processedResults = data.results.map((r: any) => {
-              // Enhanced thumbnail/image extraction
-              let thumb = r.thumbnail || r.img_src || r.thumbnail_src || r.image || r.thumbnail_url || (r.content?.match(/src="([^"]+)"/)?.[1]) || null;
-              
-              // If it's a relative path, try to make it absolute
-              if (thumb && thumb.startsWith('/')) {
-                thumb = `${instance}${thumb}`;
-              }
-
-              const url = r.url || r.link || r.href || "#";
-              
-              return {
-                ...r,
-                url,
-                img_src: thumb,
-                thumbnail: thumb,
-                title: r.title || "No Title",
-                content: r.content || r.snippet || ""
-              };
-            });
-            return { results: processedResults, instance };
-          }
-        } catch (e) {
-          // Fallback to HTML parsing if JSON fails or is not returned
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(content, 'text/html');
-          const results: any[] = [];
-          
-          // Try multiple selectors for different SearXNG themes
-          const resultElements = doc.querySelectorAll('.result, .result-default, .result-image, .result-video, .res-default, article.result, .image-result');
-          
-          resultElements.forEach((el) => {
-            const titleEl = el.querySelector('h3, h4, .title, a.result-link, .result_header a, .title a');
-            const linkEl = el.querySelector('a');
-            const contentEl = el.querySelector('.content, .snippet, .description, .result_content, .result-content');
-            const imgEl = el.querySelector('img, .thumbnail img, .image img');
-            
-            const title = titleEl?.textContent?.trim() || '';
-            const url = linkEl?.getAttribute('href') || '';
-            const snippet = contentEl?.textContent?.trim() || '';
-            const img = imgEl?.getAttribute('src') || imgEl?.getAttribute('data-src') || imgEl?.getAttribute('data-original') || '';
-            
-            if (title && url) {
-              const fullUrl = url.startsWith('/') ? `${instance}${url}` : url;
-              const fullImg = img ? (img.startsWith('/') ? `${instance}${img}` : img) : null;
-              
-              results.push({
-                title,
-                url: fullUrl,
-                content: snippet,
-                img_src: fullImg,
-                thumbnail: fullImg,
-                engine: 'searx-html',
-                score: 0.5
-              });
-            }
-          });
-
-          if (results.length > 0) return { results, instance };
-        }
-      } catch (e) {
-        if (signal.aborted) throw e;
-        // Small delay before retry
-        await new Promise(r => setTimeout(r, 300));
-      }
-    }
+async function getDDGVqd(query: string): Promise<string | null> {
+  try {
+    const html = await fetchWithPuter(`https://duckduckgo.com/?q=${encodeURIComponent(query)}`);
+    const match = html.match(/vqd=["']?([^"'\s&]+)["']?/);
+    return match ? match[1] : null;
+  } catch (e) {
+    console.error("Failed to get DDG vqd", e);
+    return null;
   }
-  throw new Error("No results");
+}
+
+async function searchDDGWeb(query: string): Promise<SearchResult[]> {
+  try {
+    const html = await fetchWithPuter(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`);
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const results: SearchResult[] = [];
+    
+    const resultElements = doc.querySelectorAll('.result');
+    resultElements.forEach(el => {
+      const titleEl = el.querySelector('.result__title a');
+      const snippetEl = el.querySelector('.result__snippet');
+      const urlEl = el.querySelector('.result__url');
+      
+      if (titleEl && snippetEl) {
+        const title = titleEl.textContent?.trim() || '';
+        const url = titleEl.getAttribute('href') || '';
+        const snippet = snippetEl.textContent?.trim() || '';
+        
+        let actualUrl = url;
+        if (url.startsWith('//duckduckgo.com/l/?uddg=')) {
+          try {
+            actualUrl = decodeURIComponent(url.split('uddg=')[1].split('&')[0]);
+          } catch (e) {}
+        }
+        
+        let domain = "unknown";
+        try { domain = new URL(actualUrl).hostname; } catch(e) {}
+        
+        results.push({
+          type: 'general',
+          title,
+          url: actualUrl,
+          snippet,
+          favicon: `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,
+          metadata: { domain, engine: 'DuckDuckGo' }
+        });
+      }
+    });
+    return results;
+  } catch (e) {
+    console.error("DDG Web search failed", e);
+    return [];
+  }
+}
+
+async function searchWikipedia(query: string): Promise<SearchResult[]> {
+  try {
+    // Wikipedia API supports CORS
+    const res = await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*`);
+    const data = await res.json();
+    
+    if (!data.query || !data.query.search) return [];
+    
+    return data.query.search.map((item: any) => {
+      const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(item.title)}`;
+      const snippet = item.snippet.replace(/<[^>]*>?/gm, ''); // Strip HTML
+      return {
+        type: 'general',
+        title: `${item.title} - Wikipedia`,
+        url,
+        snippet,
+        favicon: `https://www.google.com/s2/favicons?domain=en.wikipedia.org&sz=32`,
+        metadata: { domain: 'en.wikipedia.org', engine: 'Wikipedia' }
+      };
+    });
+  } catch (e) {
+    console.error("Wikipedia search failed", e);
+    return [];
+  }
+}
+
+async function searchDDGImages(query: string, vqd: string): Promise<SearchResult[]> {
+  try {
+    const jsonStr = await fetchWithPuter(`https://duckduckgo.com/i.js?q=${encodeURIComponent(query)}&o=json&vqd=${vqd}`);
+    const data = JSON.parse(jsonStr);
+    
+    if (!data.results) return [];
+    
+    return data.results.map((item: any) => {
+      let domain = "unknown";
+      try { domain = new URL(item.url).hostname; } catch(e) {}
+      
+      return {
+        type: 'images',
+        title: item.title || 'Image',
+        url: item.url,
+        snippet: item.title || '',
+        thumbnail: item.thumbnail || item.image,
+        favicon: `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,
+        metadata: { domain, engine: 'DuckDuckGo Images' }
+      };
+    });
+  } catch (e) {
+    console.error("DDG Image search failed", e);
+    return [];
+  }
+}
+
+async function searchDDGVideos(query: string, vqd: string): Promise<SearchResult[]> {
+  try {
+    const jsonStr = await fetchWithPuter(`https://duckduckgo.com/v.js?q=${encodeURIComponent(query)}&o=json&vqd=${vqd}`);
+    const data = JSON.parse(jsonStr);
+    
+    if (!data.results) return [];
+    
+    return data.results.map((item: any) => {
+      let domain = "unknown";
+      try { domain = new URL(item.content).hostname; } catch(e) {}
+      
+      return {
+        type: 'videos',
+        title: item.title || 'Video',
+        url: item.content,
+        snippet: item.description || '',
+        thumbnail: item.images?.medium || item.images?.small,
+        favicon: `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,
+        metadata: { domain, engine: 'DuckDuckGo Videos' }
+      };
+    });
+  } catch (e) {
+    console.error("DDG Video search failed", e);
+    return [];
+  }
 }
 
 export async function performSearch(query: string, category: string = 'general', safebased: boolean = true, fastMode: boolean = false): Promise<SearchResponse> {
@@ -288,28 +202,85 @@ export async function performSearch(query: string, category: string = 'general',
 
   const startTime = Date.now();
   let finalResults: SearchResult[] = [];
-  let instanceUsed: string | null = "Spark Local Search Engine";
-  let enginesUsed: Set<string> = new Set(["DuckDuckGo"]);
+  let enginesUsed: Set<string> = new Set();
 
   try {
-    const endpoint = category === 'images' ? '/api/images' : category === 'videos' ? '/api/videos' : '/api/search';
-    const response = await fetch(`${endpoint}?q=${encodeURIComponent(query)}`);
-    if (!response.ok) throw new Error("Search failed");
-    const data = await response.json();
+    if (category === 'general') {
+      const [ddgResults, wikiResults, summaryResult] = await Promise.all([
+        searchDDGWeb(query),
+        searchWikipedia(query),
+        fetchSummary(query)
+      ]);
+      
+      // Add Instant Answer first if available
+      if (summaryResult) {
+        if (summaryResult.AbstractText) {
+          finalResults.push({
+            type: 'instant_answer',
+            title: summaryResult.Heading || 'Instant Answer',
+            url: summaryResult.AbstractURL || `https://duckduckgo.com/?q=${encodeURIComponent(query)}`,
+            snippet: summaryResult.AbstractText,
+            favicon: `https://www.google.com/s2/favicons?domain=duckduckgo.com&sz=32`,
+            metadata: { domain: summaryResult.AbstractSource || 'DuckDuckGo', engine: 'DuckDuckGo Instant Answer' }
+          });
+          enginesUsed.add('DuckDuckGo Instant Answer');
+        } else if (summaryResult.Answer) {
+           finalResults.push({
+            type: 'instant_answer',
+            title: summaryResult.Heading || 'Answer',
+            url: `https://duckduckgo.com/?q=${encodeURIComponent(query)}`,
+            snippet: summaryResult.Answer,
+            favicon: `https://www.google.com/s2/favicons?domain=duckduckgo.com&sz=32`,
+            metadata: { domain: 'DuckDuckGo', engine: 'DuckDuckGo Instant Answer' }
+          });
+          enginesUsed.add('DuckDuckGo Instant Answer');
+        }
+        
+        // If DDG Web fails, use RelatedTopics as fallback
+        if (ddgResults.length === 0 && summaryResult.RelatedTopics) {
+          summaryResult.RelatedTopics.forEach((topic: any) => {
+            if (topic.Text && topic.FirstURL) {
+              ddgResults.push({
+                type: 'general',
+                title: topic.Text.split(' - ')[0] || 'Related Topic',
+                url: topic.FirstURL,
+                snippet: topic.Text,
+                favicon: `https://www.google.com/s2/favicons?domain=duckduckgo.com&sz=32`,
+                metadata: { domain: 'duckduckgo.com', engine: 'DuckDuckGo Related' }
+              });
+            }
+          });
+        }
+      }
 
-    finalResults = data.results.map((r: any) => ({
-      type: category,
-      title: r.title,
-      url: r.url || r.link || r.source || "#",
-      snippet: r.snippet || r.content || "",
-      thumbnail: r.thumbnail || r.image_url || null,
-      favicon: `https://www.google.com/s2/favicons?domain=${new URL(r.url || r.link || r.source || "http://localhost").hostname}&sz=32`,
-      metadata: { domain: new URL(r.url || r.link || r.source || "http://localhost").hostname, engine: 'DuckDuckGo' }
-    }));
+      // Interleave results
+      const maxLength = Math.max(ddgResults.length, wikiResults.length);
+      for (let i = 0; i < maxLength; i++) {
+        if (wikiResults[i]) finalResults.push(wikiResults[i]);
+        if (ddgResults[i]) finalResults.push(ddgResults[i]);
+      }
+      
+      if (ddgResults.length > 0) enginesUsed.add('DuckDuckGo');
+      if (wikiResults.length > 0) enginesUsed.add('Wikipedia');
+      
+    } else if (category === 'images' || category === 'videos') {
+      const vqd = await getDDGVqd(query);
+      if (vqd) {
+        if (category === 'images') {
+          finalResults = await searchDDGImages(query, vqd);
+          enginesUsed.add('DuckDuckGo Images');
+        } else {
+          finalResults = await searchDDGVideos(query, vqd);
+          enginesUsed.add('DuckDuckGo Videos');
+        }
+      }
+    }
   } catch (e) {
-    // Local search failed (likely rate limited), falling back to decentralized search
-    return performSearchFallback(query, category, safebased, fastMode);
+    console.error("Search failed", e);
   }
+
+  // Deduplicate by URL
+  const uniqueResults = Array.from(new Map(finalResults.map(item => [item.url, item])).values());
 
   const endTime = Date.now();
   const searchTime = ((endTime - startTime) / 1000).toFixed(2);
@@ -317,133 +288,17 @@ export async function performSearch(query: string, category: string = 'general',
   const response: SearchResponse = {
     query,
     category,
-    results: finalResults.slice(0, 25),
+    results: uniqueResults.slice(0, 25),
     aggregations: {
-      count: finalResults.length,
+      count: uniqueResults.length,
       engines: Array.from(enginesUsed),
-      instance: instanceUsed,
+      instance: "Frontend AI Search",
       time: searchTime
     }
   };
 
   searchCache.set(cacheKey, { data: response, timestamp: Date.now() });
   return response;
-}
-
-async function performSearchFallback(query: string, category: string = 'general', safebased: boolean = true, fastMode: boolean = false): Promise<SearchResponse> {
-  const startTime = Date.now();
-  const shuffled = [...SEARXNG_INSTANCES].sort(() => Math.random() - 0.5);
-  let finalResults: SearchResult[] = [];
-  let instanceUsed: string | null = null;
-  let enginesUsed: Set<string> = new Set();
-
-  const batchSize = fastMode ? 15 : 12;
-  const maxTotalInstances = fastMode ? 60 : 100;
-  const timeoutMs = fastMode ? 3500 : 6000;
-
-  for (let i = 0; i < shuffled.length && i < maxTotalInstances; i += batchSize) {
-    const batch = shuffled.slice(i, i + batchSize);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-    try {
-      const batchResults = await Promise.allSettled(batch.map(inst => 
-        fetchFromInstance(inst, query, category, safebased, controller.signal)
-      ));
-
-      const successful = batchResults
-        .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
-        .map(r => r.value);
-
-      if (successful.length > 0) {
-        controller.abort();
-        clearTimeout(timeoutId);
-        
-        const allBatchResults: any[] = [];
-        const seenUrls = new Set<string>();
-        
-        successful.sort((a, b) => b.results.length - a.results.length);
-        instanceUsed = successful[0].instance;
-
-        for (const node of successful) {
-          for (const res of node.results) {
-            if (!seenUrls.has(res.url)) {
-              seenUrls.add(res.url);
-              allBatchResults.push({ ...res, sourceInstance: node.instance });
-            }
-          }
-        }
-
-        let filtered = allBatchResults;
-        if (category === 'images') {
-          filtered = allBatchResults.filter((r: any) => 
-            r.img_src || r.thumbnail || r.template === 'image' || r.category === 'images' || r.content?.includes('img')
-          );
-        } else if (category === 'videos') {
-          filtered = allBatchResults.filter((r: any) => 
-            r.template === 'video' || r.category === 'videos' || 
-            r.url.includes('youtube.com') || r.url.includes('youtu.be') || 
-            r.url.includes('vimeo.com') || r.url.includes('dailymotion.com') ||
-            r.thumbnail || r.img_src
-          );
-        }
-
-        if (filtered.length === 0 && allBatchResults.length > 0) {
-          filtered = allBatchResults;
-        }
-
-        if (filtered.length > 0) {
-          filtered.sort((a: any, b: any) => (b.score || 0) - (a.score || 0));
-          
-          const mapped = filtered.map((r: any) => {
-            if (r.engine) enginesUsed.add(r.engine);
-            let domain = "unknown";
-            try { domain = new URL(r.url || "http://localhost").hostname; } catch(e) {}
-            
-            const cleanTitle = (r.title || "No Title").replace(/<[^>]*>?/gm, '').trim();
-            const cleanSnippet = (r.content || r.snippet || "").replace(/<[^>]*>?/gm, '').trim();
-            
-            return {
-              type: r.category || category,
-              title: cleanTitle,
-              url: r.url || "#",
-              snippet: cleanSnippet.substring(0, 400),
-              thumbnail: r.thumbnail || r.img_src || r.thumbnail_src || null,
-              favicon: `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,
-              metadata: { domain, engine: r.engine, score: r.score }
-            };
-          });
-
-          finalResults.push(...mapped);
-          if (finalResults.length >= 12) break;
-        }
-      }
-    } catch (e) {
-      // Batch failed
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  }
-
-  if (finalResults.length === 0) {
-    throw new Error("No results found.");
-  }
-
-  const uniqueResults = Array.from(new Map(finalResults.map(item => [item.url, item])).values());
-  const endTime = Date.now();
-  const searchTime = ((endTime - startTime) / 1000).toFixed(2);
-
-  return {
-    query,
-    category,
-    results: uniqueResults.slice(0, 25),
-    aggregations: {
-      count: uniqueResults.length,
-      engines: Array.from(enginesUsed),
-      instance: instanceUsed,
-      time: searchTime
-    }
-  };
 }
 
 export async function fetchSuggestions(query: string): Promise<string[]> {
@@ -460,9 +315,10 @@ export async function fetchSuggestions(query: string): Promise<string[]> {
 export async function fetchSummary(query: string): Promise<any> {
   if (!query) return null;
   try {
-    const response = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`);
-    return await response.json();
+    const jsonStr = await fetchWithPuter(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`);
+    return JSON.parse(jsonStr);
   } catch (e) {
     return null;
   }
 }
+

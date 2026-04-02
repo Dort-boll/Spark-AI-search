@@ -17,7 +17,7 @@ export interface AttachedFile {
 export interface StreamResponse {
   text: string;
   done: boolean;
-  sources: Array<{ title: string; uri: string }>;
+  sources: Array<{ title: string; uri: string; snippet?: string; type?: string }>;
   images?: Array<{ url: string; title: string; thumbnail?: string; metadata?: { domain: string; engine?: string } }>;
   videos?: Array<{ url: string; title: string; thumbnail?: string; metadata?: { domain: string; engine?: string } }>;
   engine?: 'Spark AI Synthesis' | 'Local Cache' | 'Quick Search Fallback';
@@ -27,7 +27,7 @@ export interface StreamResponse {
 
 interface CacheEntry {
   text: string;
-  sources: Array<{ title: string; uri: string }>;
+  sources: Array<{ title: string; uri: string; snippet?: string; type?: string }>;
   images?: Array<{ url: string; title: string; thumbnail?: string; metadata?: { domain: string; engine?: string } }>;
   videos?: Array<{ url: string; title: string; thumbnail?: string; metadata?: { domain: string; engine?: string } }>;
   relatedQueries: string[];
@@ -40,10 +40,10 @@ const CACHE_TTL = 3600000; // 1 hour
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const MODELS = [
-  { name: "⚡ Balanced", model: "openai/gpt-4.1-mini", timeout: 15000 },
-  { name: "🚀 Advanced", model: "openai/gpt-5.4-mini", timeout: 20000 },
   { name: "⚡ Fast", model: "openai/gpt-4o-mini", timeout: 10000 },
-  { name: "🧠 Deep", model: "openai/gpt-4o", timeout: 25000 }
+  { name: "🧠 Deep", model: "openai/gpt-4o", timeout: 25000 },
+  { name: "🚀 Claude", model: "anthropic/claude-3.5-sonnet", timeout: 20000 },
+  { name: "🤖 Llama", model: "meta/llama-3.1-70b-instruct", timeout: 15000 }
 ];
 
 async function browseUrl(url: string): Promise<string> {
@@ -134,7 +134,7 @@ export class PuterService {
     try {
       const response = await puter.ai.chat(
         `Provide 4 logical search completions for: "${input}". Return ONLY a JSON array of strings. No extra text or markdown.`,
-        { model: 'openai/gpt-4.1-mini' }
+        { model: 'openai/gpt-4o-mini' }
       );
       const text = (response.message?.content || response.toString()).trim();
       const match = text.match(/\[.*\]/s);
@@ -148,7 +148,7 @@ export class PuterService {
     try {
       const response = await puter.ai.chat(
         `Based on this summary: "${context.substring(0, 400)}", suggest 3 intelligent follow-up questions for the search: "${query}". Return only a JSON array of strings.`,
-        { model: 'openai/gpt-4.1-mini' }
+        { model: 'openai/gpt-4o-mini' }
       );
       const text = (response.message?.content || response.toString()).trim();
       const match = text.match(/\[.*\]/s);
@@ -306,7 +306,9 @@ export class PuterService {
             
             const sources = genRes.results.slice(0, 8).map((r: any) => ({ 
               title: r.title || r.url.split('/')[2] || "Source", 
-              uri: r.url 
+              uri: r.url,
+              snippet: r.snippet,
+              type: r.type
             }));
 
             if (sources.length > 0 || imgRes.results.length > 0) {
@@ -328,9 +330,30 @@ export class PuterService {
         if (Date.now() - startTime > 45000) break; 
       }
 
-      if (aiError) throw aiError;
-      if (!aiResult) {
-        throw new Error("All neural cores failed to respond.");
+      if (aiError || !aiResult) {
+        console.warn("AI Synthesis failed, falling back to pure search results.");
+        if (!searchResult) {
+          searchResult = await searchPromise;
+        }
+        const [genRes, imgRes, vidRes] = searchResult;
+        
+        const searchSources = genRes.results.slice(0, 15).map((r: any) => ({
+          title: r.title || r.url.split('/')[2] || "Source",
+          uri: r.url,
+          snippet: r.snippet,
+          type: r.type
+        }));
+        
+        const images = imgRes.results.slice(0, 12);
+        const videos = vidRes.results.slice(0, 12);
+        
+        let fallbackText = "I could not synthesize an AI response at this time. However, here are the top search results for your query:\n\n";
+        searchSources.forEach((s: any, i: number) => {
+          fallbackText += `**${i+1}. [${s.title}](${s.uri})**\n${s.snippet}\n\n`;
+        });
+        
+        yield { text: fallbackText, done: true, sources: searchSources, images, videos, engine: 'Quick Search Fallback' };
+        return;
       }
 
       let fullText = "";
@@ -352,10 +375,28 @@ export class PuterService {
       }
       const [genRes, imgRes, vidRes] = searchResult;
 
-      const sources = foundLinks.slice(0, 8).map(url => ({ 
+      const aiSources = foundLinks.slice(0, 8).map(url => ({ 
         title: url.split('/')[2] || "Source", 
-        uri: url 
+        uri: url,
+        type: 'ai_link'
       }));
+      
+      const searchSources = genRes.results.slice(0, 15).map((r: any) => ({
+        title: r.title || r.url.split('/')[2] || "Source",
+        uri: r.url,
+        snippet: r.snippet,
+        type: r.type
+      }));
+      
+      // Deduplicate sources by URI
+      const allSources = [...aiSources, ...searchSources];
+      const uniqueSourcesMap = new Map();
+      for (const s of allSources) {
+        if (!uniqueSourcesMap.has(s.uri)) {
+          uniqueSourcesMap.set(s.uri, s);
+        }
+      }
+      const sources = Array.from(uniqueSourcesMap.values());
 
       // Combine AI-extracted images with search results
       const aiImages = extractImages(foundLinks).map(url => ({

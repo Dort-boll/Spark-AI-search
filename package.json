@@ -4,26 +4,15 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
-    "start": "node server.ts",
+    "dev": "vite",
     "build": "vite build",
     "lint": "tsc --noEmit",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
-    "cors": "^2.8.6",
-    "duck-duck-scrape": "^2.2.7",
-    "express": "^5.2.1",
-    "google-it": "^1.6.4",
-    "googlethis": "^1.8.0",
     "motion": "^12.37.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "ts-duckduckgo-search": "^0.3.1",
-    "tsx": "^4.21.0",
-    "youtube-search-api": "^2.0.1"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
